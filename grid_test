@@ -1,0 +1,102 @@
+import cv2
+import numpy as np
+
+# ========================================
+# GRID CALIBRATION TOOL
+# ========================================
+# This tool helps you find the correct grid parameters
+# to position detection rectangles over the colored parts
+
+# Load the perspective-corrected image
+perspective_image = cv2.imread(r"C:\Users\USER\Downloads\Robot Dynamics & Vision Control\resultados\perspectiva.jpg")
+if perspective_image is None:
+    print("ERROR: Could not load perspectiva.jpg")
+    print("Make sure you run the main vision code first!")
+    exit()
+
+# Create a copy for testing
+test_image = perspective_image.copy()
+
+# ========================================
+# ADJUSTABLE PARAMETERS
+# ========================================
+# These are the parameters you need to adjust
+# Look at the output image and modify these values until
+# the rectangles are positioned on top of the colored pieces
+
+# Starting position (top-left corner of first cell)
+start_x = 0  # Horizontal starting position
+start_y = 0  # Vertical starting position
+
+# Cell spacing
+spacing_x = 265  # Horizontal distance between cells
+spacing_y = 200  # Vertical distance between cells
+
+# Detection rectangle size
+rect_width = 265   # Width of detection rectangle
+rect_height = 200   # Height of detection rectangle
+
+print("="*50)
+print("GRID CALIBRATION TOOL")
+print("="*50)
+print(f"\nCurrent parameters:")
+print(f"Start position: ({start_x}, {start_y})")
+print(f"Cell spacing: ({spacing_x}, {spacing_y})")
+print(f"Rectangle size: {rect_width}x{rect_height}")
+print("\nAdjust the parameters in the code until")
+print("the rectangles cover the colored pieces.")
+print("="*50)
+
+# ========================================
+# DRAW GRID
+# ========================================
+# Draw the 3x3 grid with current parameters
+for i in range(3):  # Rows
+    for j in range(3):  # Columns
+        # Calculate rectangle position
+        x1 = start_x + (j * spacing_x)
+        y1 = start_y + (i * spacing_y)
+        x2 = x1 + rect_width
+        y2 = y1 + rect_height
+        
+        # Draw rectangle
+        cv2.rectangle(test_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        
+        # Draw cell number
+        cell_num = i * 3 + j
+        cv2.putText(test_image, f"{cell_num}", 
+                   (x1 + 5, y1 + 25), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
+        
+        # Draw center point
+        center_x = x1 + rect_width // 2
+        center_y = y1 + rect_height // 2
+        cv2.circle(test_image, (center_x, center_y), 5, (0, 0, 255), -1)
+
+# Draw grid lines for reference
+for i in range(4):
+    # Horizontal lines
+    y = start_y + (i * spacing_y)
+    cv2.line(test_image, (start_x, y), (start_x + spacing_x * 3, y), (255, 255, 0), 1)
+    
+    # Vertical lines
+    x = start_x + (i * spacing_x)
+    cv2.line(test_image, (x, start_y), (x, start_y + spacing_y * 3), (255, 255, 0), 1)
+
+# Add instructions on image
+cv2.putText(test_image, "Adjust parameters until green rectangles cover pieces", 
+           (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+# Save result
+cv2.imwrite('grid_calibration.jpg', test_image)
+print(f"\n✓ Saved: grid_calibration.jpg")
+print("\nCheck the image and adjust the parameters above.")
+print("Once the rectangles cover the colored pieces perfectly,")
+print("copy these values to your main vision code:")
+print(f"\nx = {start_x}")
+print(f"y = {start_y}")
+print(f"dx = {spacing_x}")
+print(f"dy = {spacing_y}")
+print(f"w = {rect_width}")
+print(f"h = {rect_height}")
+print("="*50)

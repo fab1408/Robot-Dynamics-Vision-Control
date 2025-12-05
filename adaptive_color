@@ -1,0 +1,298 @@
+import cv2
+import numpy as np
+import json
+import os
+from datetime import datetime
+
+# ========================================
+# FOLDER ORGANIZATION
+# ========================================
+# All calibration files go in one folder
+CALIBRATION_FOLDER = 'color_calibration'
+
+# Create folder if it doesn't exist
+os.makedirs(CALIBRATION_FOLDER, exist_ok=True)
+
+# ========================================
+# ADAPTIVE COLOR DETECTION SYSTEM
+# ========================================
+
+class AdaptiveColorDetector:
+    def __init__(self):
+        """Initialize the adaptive color detector"""
+        self.calibration_file = os.path.join(CALIBRATION_FOLDER, 'calibration.json')
+        self.color_samples = {
+            'blue': [],
+            'red': [],
+            'orange': []
+        }
+        self.load_calibration()
+    
+    def load_calibration(self):
+        """Load saved calibration data if exists"""
+        if os.path.exists(self.calibration_file):
+            with open(self.calibration_file, 'r') as f:
+                data = json.load(f)
+                self.color_samples = data
+                print(f"✓ Loaded calibration from: {self.calibration_file}")
+        else:
+            print(f"! No calibration found. Run calibration first (Option 1)")
+    
+    def save_calibration(self):
+        """Save calibration data to JSON file"""
+        with open(self.calibration_file, 'w') as f:
+            json.dump(self.color_samples, f, indent=2)
+        print(f"✓ Calibration saved to: {self.calibration_file}")
+    
+    def calibrate_interactive(self, image_path):
+        """Interactive calibration - user clicks on colored parts"""
+        img = cv2.imread(image_path)
+        if img is None:
+            print(f"ERROR: Cannot load {image_path}")
+            return
+        
+        # Convert to HSV
+        img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        
+        print("\n" + "="*60)
+        print("INTERACTIVE COLOR CALIBRATION")
+        print("="*60)
+        print("\nINSTRUCTIONS:")
+        print("1. Click on BLUE parts (5-10 clicks in different areas)")
+        print("2. Press 'b' when done with blue")
+        print("3. Click on RED parts (5-10 clicks in different areas)")
+        print("4. Press 'r' when done with red")
+        print("5. Click on ORANGE markers (4+ clicks, one per corner)")
+        print("6. Press 'o' when done with orange")
+        print("7. Press 'q' to save and quit")
+        print("\nTIP: Click on bright areas AND shadowed areas")
+        print("="*60)
+        
+        current_color = 'blue'
+        clicks = []
+        
+        def mouse_callback(event, x, y, flags, param):
+            nonlocal clicks
+            if event == cv2.EVENT_LBUTTONDOWN:
+                # Get HSV value at click position
+                hsv_value = img_hsv[y, x]
+                clicks.append([int(hsv_value[0]), int(hsv_value[1]), int(hsv_value[2])])
+                
+                # Draw circle for visual feedback
+                color = (255, 0, 0) if current_color == 'blue' else \
+                       (0, 0, 255) if current_color == 'red' else \
+                       (0, 165, 255)
+                cv2.circle(img, (x, y), 10, color, -1)
+                cv2.imshow('Calibration', img)
+                
+                print(f"  ✓ Captured {current_color}: HSV({hsv_value[0]}, {hsv_value[1]}, {hsv_value[2]})")
+        
+        cv2.namedWindow('Calibration')
+        cv2.setMouseCallback('Calibration', mouse_callback)
+        cv2.imshow('Calibration', img)
+        
+        while True:
+            key = cv2.waitKey(1) & 0xFF
+            
+            if key == ord('b'):  # Blue done
+                if len(clicks) > 0:
+                    self.color_samples['blue'].extend(clicks)
+                    print(f"\n✓ Saved {len(clicks)} blue samples")
+                    clicks = []
+                    current_color = 'red'
+                    print("\n--- Now click on RED parts ---")
+            
+            elif key == ord('r'):  # Red done
+                if len(clicks) > 0:
+                    self.color_samples['red'].extend(clicks)
+                    print(f"\n✓ Saved {len(clicks)} red samples")
+                    clicks = []
+                    current_color = 'orange'
+                    print("\n--- Now click on ORANGE markers ---")
+            
+            elif key == ord('o'):  # Orange done
+                if len(clicks) > 0:
+                    self.color_samples['orange'].extend(clicks)
+                    print(f"\n✓ Saved {len(clicks)} orange samples")
+                    clicks = []
+                    print("\n✓ Calibration complete! Press 'q' to save.")
+            
+            elif key == ord('q'):  # Quit
+                break
+        
+        cv2.destroyAllWindows()
+        self.save_calibration()
+        self.calculate_ranges()
+    
+    def calculate_ranges(self):
+        """Calculate optimal color ranges from captured samples"""
+        print("\n" + "="*60)
+        print("CALCULATED COLOR RANGES")
+        print("="*60)
+        print("\n📋 COPY THESE VALUES TO YOUR MAIN CODE:")
+        print("="*60)
+        
+        color_names = ['blue', 'red', 'orange']
+        
+        for color_name in color_names:
+            samples = self.color_samples.get(color_name, [])
+            
+            if len(samples) == 0:
+                print(f"\n{color_name.upper()}: No samples")
+                continue
+            
+            samples_array = np.array(samples)
+            
+            # Calculate statistics
+            mean_hsv = np.mean(samples_array, axis=0)
+            std_hsv = np.std(samples_array, axis=0)
+            
+            # Create range with margin
+            margin = 2
+            lower = np.maximum(mean_hsv - margin * std_hsv, [0, 50, 50])
+            upper = np.minimum(mean_hsv + margin * std_hsv, [180, 255, 255])
+            
+            # Format for easy copy-paste
+            if color_name == 'blue':
+                var_lower = 'azul_bajos'
+                var_upper = 'azul_altos'
+            elif color_name == 'red':
+                var_lower = 'rojo_bajos'
+                var_upper = 'rojo_altos'
+            else:  # orange
+                var_lower = 'naranja_bajos'
+                var_upper = 'naranja_altos'
+            
+            print(f"\n# {color_name.upper()} (HSV format)")
+            print(f"{var_lower} = np.array([{int(lower[0])}, {int(lower[1])}, {int(lower[2])}], dtype=np.uint8)")
+            print(f"{var_upper} = np.array([{int(upper[0])}, {int(upper[1])}, {int(upper[2])}], dtype=np.uint8)")
+            
+            # Save calculated ranges
+            self.color_samples[f'{color_name}_lower'] = lower.tolist()
+            self.color_samples[f'{color_name}_upper'] = upper.tolist()
+        
+        print("\n" + "="*60)
+        print("💡 TIP: Copy the lines above and replace the color ranges")
+        print("   in your main vision code (around line 70-85)")
+        print("="*60)
+        
+        self.save_calibration()
+    
+    def get_color_range(self, color_name):
+        """Get the calibrated color range"""
+        lower_key = f'{color_name}_lower'
+        upper_key = f'{color_name}_upper'
+        
+        if lower_key in self.color_samples and upper_key in self.color_samples:
+            lower = np.array(self.color_samples[lower_key], dtype=np.uint8)
+            upper = np.array(self.color_samples[upper_key], dtype=np.uint8)
+            return lower, upper
+        else:
+            print(f"⚠ WARNING: No calibration for {color_name}")
+            return self.get_default_range(color_name)
+    
+    def get_default_range(self, color_name):
+        """Fallback default ranges"""
+        defaults = {
+            'blue': (np.array([100, 100, 100]), np.array([130, 255, 255])),
+            'red': (np.array([0, 100, 100]), np.array([10, 255, 255])),
+            'orange': (np.array([10, 100, 100]), np.array([25, 255, 255]))
+        }
+        return defaults.get(color_name, (np.array([0, 0, 0]), np.array([180, 255, 255])))
+    
+    def test_detection(self, image_path):
+        """Test the calibrated color detection"""
+        img = cv2.imread(image_path)
+        if img is None:
+            print(f"ERROR: Cannot load {image_path}")
+            return
+        
+        # Convert to HSV
+        img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        
+        # Get calibrated ranges
+        blue_lower, blue_upper = self.get_color_range('blue')
+        red_lower, red_upper = self.get_color_range('red')
+        orange_lower, orange_upper = self.get_color_range('orange')
+        
+        print("\nTesting with these ranges:")
+        print(f"Blue:   {blue_lower} to {blue_upper}")
+        print(f"Red:    {red_lower} to {red_upper}")
+        print(f"Orange: {orange_lower} to {orange_upper}")
+        
+        # Create masks
+        mask_blue = cv2.inRange(img_hsv, blue_lower, blue_upper)
+        mask_red = cv2.inRange(img_hsv, red_lower, red_upper)
+        mask_orange = cv2.inRange(img_hsv, orange_lower, orange_upper)
+        
+        # Save results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        cv2.imwrite(os.path.join(CALIBRATION_FOLDER, f'test_blue_{timestamp}.jpg'), mask_blue)
+        cv2.imwrite(os.path.join(CALIBRATION_FOLDER, f'test_red_{timestamp}.jpg'), mask_red)
+        cv2.imwrite(os.path.join(CALIBRATION_FOLDER, f'test_orange_{timestamp}.jpg'), mask_orange)
+        
+        print(f"\n✓ Test masks saved to: {CALIBRATION_FOLDER}/")
+
+# ========================================
+# AUTO BRIGHTNESS ADJUSTMENT
+# ========================================
+def auto_adjust_brightness(image):
+    """Automatically adjust image brightness using CLAHE"""
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    l = clahe.apply(l)
+    
+    lab = cv2.merge([l, a, b])
+    adjusted = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+    
+    return adjusted
+
+# ========================================
+# MAIN MENU
+# ========================================
+def main():
+    print("="*60)
+    print("ADAPTIVE COLOR DETECTION SYSTEM")
+    print("="*60)
+    print(f"\nAll files saved to: {CALIBRATION_FOLDER}/")
+    
+    detector = AdaptiveColorDetector()
+    
+    print("\n" + "="*60)
+    print("OPTIONS:")
+    print("="*60)
+    print("1 - Calibrate with new image (click on colors)")
+    print("2 - Test detection with existing calibration")
+    print("3 - Auto-adjust brightness and test")
+    print("4 - Exit")
+    
+    choice = input("\nEnter choice (1/2/3/4): ").strip()
+    
+    if choice == '1':
+        image_path = input("Enter image path for calibration: ").strip()
+        detector.calibrate_interactive(image_path)
+    
+    elif choice == '2':
+        image_path = input("Enter image path for testing: ").strip()
+        detector.test_detection(image_path)
+    
+    elif choice == '3':
+        image_path = input("Enter image path: ").strip()
+        img = cv2.imread(image_path)
+        if img is not None:
+            adjusted = auto_adjust_brightness(img)
+            adjusted_path = os.path.join(CALIBRATION_FOLDER, 'adjusted_brightness.jpg')
+            cv2.imwrite(adjusted_path, adjusted)
+            print(f"✓ Saved: {adjusted_path}")
+            detector.test_detection(adjusted_path)
+    
+    elif choice == '4':
+        print("Goodbye!")
+    
+    else:
+        print("Invalid choice")
+
+if __name__ == "__main__":
+    main()

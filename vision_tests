@@ -1,0 +1,203 @@
+import cv2
+import numpy as np
+import os
+
+# ========================================
+# PATHS
+# ========================================
+iphone_img = r"C:\Users\USER\Downloads\Robot Dynamics & Vision Control\iphone_test.jpg"
+yellow_img = r"C:\Users\USER\Downloads\Robot Dynamics & Vision Control\yellow_test.jpg"
+output_folder = r"C:\Users\USER\Downloads\Robot Dynamics & Vision Control\test"
+
+# Create output folder
+if not os.path.exists(output_folder):
+    os.makedirs(output_folder)
+
+# ========================================
+# COLOR SPACE TESTS
+# ========================================
+def test_colors(img_path, name):
+    print(f"\n--- Testing Colors: {name} ---")
+    
+    img = cv2.imread(img_path)
+    if img is None:
+        print(f"ERROR: Can't load {img_path}")
+        return
+    
+    print(f"Image size: {img.shape}")
+    
+    # Original BGR
+    cv2.imwrite(os.path.join(output_folder, f"{name}_bgr.jpg"), img)
+    
+    # Convert to RGB
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    cv2.imwrite(os.path.join(output_folder, f"{name}_rgb.jpg"), 
+                cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
+    
+    # Convert to HSV
+    img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    cv2.imwrite(os.path.join(output_folder, f"{name}_hsv.jpg"), img_hsv)
+    
+    print(f"✓ Saved BGR, RGB, HSV versions")
+
+# ========================================
+# ROTATION TESTS
+# ========================================
+def test_rotations(img_path, name):
+    print(f"\n--- Testing Rotations: {name} ---")
+    
+    img = cv2.imread(img_path)
+    if img is None:
+        print(f"ERROR: Can't load {img_path}")
+        return
+    
+    h, w = img.shape[:2]
+    center = (w / 2, h / 2)
+    
+    # Test a few useful angles
+    angles = [0, 90, 180, 183, 270]
+    
+    for angle in angles:
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated = cv2.warpAffine(img, M, (w, h))
+        cv2.imwrite(os.path.join(output_folder, f"{name}_rot{angle}.jpg"), rotated)
+    
+    print(f"✓ Saved {len(angles)} rotations")
+
+# ========================================
+# RESIZE TESTS
+# ========================================
+def test_resize(img_path, name):
+    print(f"\n--- Testing Resize: {name} ---")
+    
+    img = cv2.imread(img_path)
+    if img is None:
+        print(f"ERROR: Can't load {img_path}")
+        return
+    
+    h, w = img.shape[:2]
+    print(f"Original: {w}x{h}")
+    
+    # Resize to 800x600
+    resized = cv2.resize(img, (800, 600))
+    cv2.imwrite(os.path.join(output_folder, f"{name}_800x600.jpg"), resized)
+    
+    # Test different sizes
+    sizes = [(400, 300), (800, 600), (1200, 900)]
+    
+    for new_w, new_h in sizes:
+        resized = cv2.resize(img, (new_w, new_h))
+        cv2.imwrite(os.path.join(output_folder, f"{name}_{new_w}x{new_h}.jpg"), resized)
+    
+    print(f"✓ Saved {len(sizes)} different sizes")
+
+# ========================================
+# YELLOW CORNER DETECTION
+# ========================================
+def test_yellow_corners(img_path, name):
+    print(f"\n--- Testing Yellow Corners: {name} ---")
+    
+    img = cv2.imread(img_path)
+    if img is None:
+        print(f"ERROR: Can't load {img_path}")
+        return
+    
+    # Convert to HSV (better for colors)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    
+    # Yellow range in HSV
+    yellow_low = np.array([20, 100, 100], dtype=np.uint8)
+    yellow_high = np.array([30, 255, 255], dtype=np.uint8)
+    
+    # Create mask
+    mask = cv2.inRange(hsv, yellow_low, yellow_high)
+    
+    # Clean up noise
+    kernel = np.ones((10, 10), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    
+    cv2.imwrite(os.path.join(output_folder, f"{name}_yellow_mask.jpg"), mask)
+    
+    # Find yellow spots
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Draw detected corners
+    result = img.copy()
+    corners = []
+    
+    for i, cnt in enumerate(contours):
+        if cv2.contourArea(cnt) > 100:
+            M = cv2.moments(cnt)
+            if M['m00'] != 0:
+                cx = int(M['m10'] / M['m00'])
+                cy = int(M['m01'] / M['m00'])
+                corners.append((cx, cy))
+                
+                cv2.circle(result, (cx, cy), 10, (0, 0, 255), -1)
+                cv2.putText(result, f"{i+1}", (cx + 15, cy), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+    
+    cv2.imwrite(os.path.join(output_folder, f"{name}_corners.jpg"), result)
+    
+    print(f"✓ Found {len(corners)} corners: {corners}")
+
+# ========================================
+# FULL PIPELINE TEST
+# ========================================
+def test_pipeline(img_path, name):
+    print(f"\n--- Testing Full Pipeline: {name} ---")
+    
+    img = cv2.imread(img_path)
+    if img is None:
+        print(f"ERROR: Can't load {img_path}")
+        return
+    
+    # Step 1: Resize
+    img = cv2.resize(img, (800, 600))
+    cv2.imwrite(os.path.join(output_folder, f"{name}_step1_resize.jpg"), img)
+    
+    # Step 2: Rotate
+    h, w = img.shape[:2]
+    M = cv2.getRotationMatrix2D((w/2, h/2), 183, 1.0)
+    img = cv2.warpAffine(img, M, (w, h))
+    cv2.imwrite(os.path.join(output_folder, f"{name}_step2_rotate.jpg"), img)
+    
+    # Step 3: HSV conversion
+    img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    cv2.imwrite(os.path.join(output_folder, f"{name}_step3_hsv.jpg"), img_hsv)
+    
+    # Step 4: Back to BGR
+    img_final = cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR)
+    cv2.imwrite(os.path.join(output_folder, f"{name}_step4_final.jpg"), img_final)
+    
+    print("✓ Saved 4-step pipeline")
+
+# ========================================
+# RUN ALL TESTS
+# ========================================
+def run_all():
+    print("="*50)
+    print("VISION TESTS")
+    print("="*50)
+    
+    # iPhone image tests
+    print("\n>>> iPhone Image <<<")
+    test_colors(iphone_img, "iphone")
+    test_rotations(iphone_img, "iphone")
+    test_resize(iphone_img, "iphone")
+    test_pipeline(iphone_img, "iphone")
+    
+    # Yellow image tests
+    print("\n>>> Yellow Markers Image <<<")
+    test_colors(yellow_img, "yellow")
+    test_resize(yellow_img, "yellow")
+    test_yellow_corners(yellow_img, "yellow")
+    test_pipeline(yellow_img, "yellow")
+    
+    print("\n" + "="*50)
+    print(f"DONE! Check: {output_folder}")
+    print("="*50)
+
+if __name__ == "__main__":
+    run_all()
