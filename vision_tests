@@ -7,7 +7,7 @@ import os
 # ========================================
 iphone_img = r"C:\Users\USER\Downloads\Robot Dynamics & Vision Control\iphone_test.jpg"
 yellow_img = r"C:\Users\USER\Downloads\Robot Dynamics & Vision Control\yellow_test.jpg"
-output_folder = r"C:\Users\USER\Downloads\Robot Dynamics & Vision Control\test"
+output_folder = r"C:\Users\USER\Downloads\Robot-Dynamics-Vision-Control\tests"
 
 # Create output folder
 if not os.path.exists(output_folder):

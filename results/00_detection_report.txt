@@ -1,0 +1,28 @@
+==================================================
+DETECTION REPORT
+==================================================
+
+Date: 2025-12-06 11:25:28
+Image source: C:\Users\USER\Downloads\vision_project_robotics\vision_project\estanteria.jpg
+
+Corners detected: 4
+  - Top-Left: [83, 24]
+  - Top-Right: [673, 56]
+  - Bottom-Right: [615, 446]
+  - Bottom-Left: [122, 434]
+
+Detection results:
+  - Blue parts: 3
+  - Red parts: 4
+  - Total parts: 7
+
+Board state: [0. 1. 1. 1. 2. 2. 2. 2. 0.]
+
+Part positions (row, col, color):
+  Part 1: Row=0, Col=1, Color=Blue
+  Part 2: Row=0, Col=2, Color=Blue
+  Part 3: Row=1, Col=0, Color=Blue
+  Part 4: Row=1, Col=1, Color=Red
+  Part 5: Row=1, Col=2, Color=Red
+  Part 6: Row=2, Col=0, Color=Red
+  Part 7: Row=2, Col=1, Color=Red
